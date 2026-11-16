@@ -81,3 +81,6 @@ cargo fmt --check
 `src/runtime/memory.rs` resolves Mono fields and reads snapshots.
 `src/runtime/terminal.rs` recognizes the accepted initial command.
 `src/runtime/mod.rs` connects them to LiveSplit and its settings.
+
+See [the game-state notes](docs/game-state.md) for the fields and assumptions
+behind the triggers.
