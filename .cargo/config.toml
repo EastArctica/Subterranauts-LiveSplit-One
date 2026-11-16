@@ -1,0 +1,3 @@
+[alias]
+wasm = "build --release --target wasm32-unknown-unknown"
+check-wasm = "clippy --locked --target wasm32-unknown-unknown -- -D warnings"

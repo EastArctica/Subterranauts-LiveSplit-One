@@ -1,0 +1,25 @@
+[package]
+name = "subterranauts-autosplitter"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+asr = { git = "https://github.com/LiveSplit/asr", rev = "06f244ead9d700618b5bd22b0ddb334c0c791b57", features = ["derive", "unity"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+opt-level = "s"
+strip = true
+
+[lints.rust]
+unsafe_code = "deny"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
