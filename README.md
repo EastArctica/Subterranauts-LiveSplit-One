@@ -40,7 +40,9 @@ scenarios.
 
 ## Build and use
 
-Install [Rust](https://rustup.rs/), then:
+Download `subterranauts_autosplitter.wasm` from the
+[latest release](https://github.com/EastArctica/Subterranauts-LiveSplit-One/releases/latest),
+or build it yourself. To build, install [Rust](https://rustup.rs/), then:
 
 ```sh
 cargo wasm --locked
