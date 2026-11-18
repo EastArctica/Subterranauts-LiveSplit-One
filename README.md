@@ -29,7 +29,7 @@ the host's recording as the timing reference.
 | Start on the initial departure command | On | Host's first successful `LEAVE_CHECKPOINT` command in a freshly hosted game |
 | Split on completed assignments | On | Checkpoint door changes from closed to accepted/open |
 | Split on station arrivals | Off | Travel to a scrap station finishes; includes the first station, excludes checkpoints |
-| Reset on game over | Off | Game-over screen appears during a running or paused attempt |
+| Reset on new game | On | A fresh game is hosted from the main menu while the timer is running, paused, or finished |
 
 Station splits are additional to assignment splits. To time stations only,
 disable assignment splits. Station counts vary with the route.
@@ -64,11 +64,14 @@ host, and attaching after the fresh-host transition do not arm auto-start,
 you can still start manually and time subsequent events.
 
 Begin each new attempt from a freshly hosted game. The game-over screen's
-restart skips the initial checkpoint and retains state.
+restart skips the initial checkpoint and retains state, so it is not a valid run
+start and does not re-arm auto-start.
 
-The splitter only reads process memory. Exiting the game, returning to the menu,
-or losing readable state doesn't reset the timer. Completed attempts are not
-automatically reset. Events observed while paused or disabled are not queued.
+A running, paused, or finished attempt is reset when a new game is hosted from
+the main menu. Game over does not reset by itself; the failed attempt is reset
+when the next new game is hosted. Loading a save or joining another host does
+not reset, to allow segmented runs to continue. Exiting the game, returning to
+the menu, or losing readable state does not reset by itself.
 
 ## Development
 

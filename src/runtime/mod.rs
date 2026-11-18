@@ -36,11 +36,13 @@ struct Settings {
     /// Adds a split when travel to a scrap station finishes, including the first station.
     #[default = false]
     stations: bool,
-    /// Reset on game over
+    /// Reset on new game
     ///
-    /// Resets running or paused attempts. Finished attempts are left alone.
-    #[default = false]
-    reset_on_game_over: bool,
+    /// Resets running, paused, or finished attempts when a new game is hosted
+    /// from the main menu. Loading a save or joining another host does not
+    /// reset.
+    #[default = true]
+    reset_on_new_game: bool,
 }
 
 impl From<&Settings> for Options {
@@ -49,7 +51,7 @@ impl From<&Settings> for Options {
             start: settings.start,
             assignments: settings.assignments,
             stations: settings.stations,
-            reset_on_game_over: settings.reset_on_game_over,
+            reset_on_new_game: settings.reset_on_new_game,
         }
     }
 }
@@ -132,7 +134,7 @@ fn apply(action: Action) {
             timer::split();
         }
         Action::Reset => {
-            asr::print_message("Reset: game over");
+            asr::print_message("Reset: new game");
             timer::reset();
         }
     }

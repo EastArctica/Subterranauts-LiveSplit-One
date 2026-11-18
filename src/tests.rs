@@ -53,7 +53,7 @@ const ALL_EVENTS: Options = Options {
     start: true,
     assignments: true,
     stations: true,
-    reset_on_game_over: true,
+    reset_on_new_game: true,
 };
 
 #[test]
@@ -227,7 +227,14 @@ fn disabled_or_paused_events_are_not_queued_for_later() {
                 ..Options::default()
             },
         ),
-        (Timer::Paused, Timer::Paused, ALL_EVENTS),
+        (
+            Timer::Paused,
+            Timer::Paused,
+            Options {
+                reset_on_new_game: false,
+                ..ALL_EVENTS
+            },
+        ),
     ] {
         let mut tracker = Tracker::default();
         assert_eq!(tracker.update(LOBBY, start_timer, options), None);
@@ -294,34 +301,112 @@ fn a_read_failure_does_not_invent_a_start_split_or_reset() {
 }
 
 #[test]
-fn game_over_reset_is_opt_in_and_never_resets_a_finished_timer() {
-    // Include a simultaneous door edge: game over must win over splitting.
+fn new_game_resets_running_paused_and_finished_attempts_once() {
+    for (timer, expected) in [
+        (Timer::Running, Some(Action::Reset)),
+        (Timer::Paused, Some(Action::Reset)),
+        (Timer::Ended, Some(Action::Reset)),
+        (Timer::NotRunning, None),
+        (Timer::Unknown, None),
+    ] {
+        let mut tracker = Tracker::default();
+        assert_eq!(tracker.update(LOBBY, timer, ALL_EVENTS), expected);
+        assert_eq!(tracker.update(LOBBY, timer, ALL_EVENTS), None);
+    }
+}
+
+#[test]
+fn new_game_reset_ignores_saves_and_joins() {
+    for entry in [None, Some(SessionEntry::LoadSave), Some(SessionEntry::Join)] {
+        for timer in [Timer::Running, Timer::Paused, Timer::Ended] {
+            let mut tracker = Tracker::default();
+            assert_eq!(
+                tracker.update(Snapshot { entry, ..LOBBY }, timer, ALL_EVENTS),
+                None
+            );
+            assert_eq!(
+                tracker.update(Snapshot { entry, ..LOBBY }, timer, ALL_EVENTS),
+                None
+            );
+        }
+    }
+}
+
+#[test]
+fn new_game_reset_is_opt_in_and_not_queued_when_disabled() {
+    let options = Options {
+        reset_on_new_game: false,
+        ..Options::default()
+    };
+    let mut tracker = Tracker::default();
+    assert_eq!(tracker.update(LOBBY, Timer::Running, options), None);
+    // Enabling the setting while the same session is still being prepared
+    // must not reset retroactively.
+    assert_eq!(tracker.update(LOBBY, Timer::Running, ALL_EVENTS), None);
+
+    // A later game object is a new session and may reset again.
+    assert_eq!(
+        tracker.update(Snapshot { game: 2, ..LOBBY }, Timer::Running, ALL_EVENTS),
+        Some(Action::Reset)
+    );
+}
+
+#[test]
+fn game_over_does_not_reset_or_split() {
     let failed = Snapshot {
         game_over: true,
         ..COMPLETED
     };
-    let mut tracker = Tracker::default();
-    assert_eq!(
-        tracker.update(CHECKPOINT, Timer::Running, Options::default()),
-        None
-    );
-    assert_eq!(
-        tracker.update(failed, Timer::Running, Options::default()),
-        None
-    );
-
-    for (timer, expected) in [
-        (Timer::Running, Some(Action::Reset)),
-        (Timer::Paused, Some(Action::Reset)),
-        (Timer::NotRunning, None),
-        (Timer::Ended, None),
-        (Timer::Unknown, None),
-    ] {
+    for timer in [Timer::Running, Timer::Paused, Timer::Ended] {
         let mut tracker = Tracker::default();
         assert_eq!(tracker.update(CHECKPOINT, timer, ALL_EVENTS), None);
-        assert_eq!(tracker.update(failed, timer, ALL_EVENTS), expected);
+        assert_eq!(tracker.update(failed, timer, ALL_EVENTS), None);
         assert_eq!(tracker.update(failed, timer, ALL_EVENTS), None);
     }
+}
+
+#[test]
+fn game_over_then_new_game_resets_the_failed_attempt() {
+    let mut tracker = Tracker::default();
+    assert_eq!(tracker.update(CHECKPOINT, Timer::Running, ALL_EVENTS), None);
+    assert_eq!(
+        tracker.update(
+            Snapshot {
+                game_over: true,
+                ..COMPLETED
+            },
+            Timer::Running,
+            ALL_EVENTS
+        ),
+        None
+    );
+    // Returning to the menu makes the game state unreadable, then hosting a
+    // new game produces a new game object.
+    tracker.interrupt();
+    assert_eq!(
+        tracker.update(Snapshot { game: 2, ..LOBBY }, Timer::Running, ALL_EVENTS),
+        Some(Action::Reset)
+    );
+}
+
+#[test]
+fn resetting_the_next_game_allows_the_new_attempt_to_start() {
+    let mut tracker = Tracker::default();
+    assert_eq!(
+        tracker.update(Snapshot { game: 2, ..LOBBY }, Timer::Ended, ALL_EVENTS),
+        Some(Action::Reset)
+    );
+    assert_eq!(
+        tracker.update(
+            Snapshot {
+                game: 2,
+                ..ACCEPTED
+            },
+            Timer::NotRunning,
+            ALL_EVENTS
+        ),
+        Some(Action::Start)
+    );
 }
 
 #[test]
@@ -354,7 +439,7 @@ fn only_a_new_game_rearms_consumed_starts_and_splits() {
             Timer::Running,
             ALL_EVENTS
         ),
-        Some(Action::Reset)
+        None
     );
     tracker.interrupt();
     // The game's in-place restart skips the lobby and retains consumed events.

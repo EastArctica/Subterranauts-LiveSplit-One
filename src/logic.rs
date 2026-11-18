@@ -46,7 +46,7 @@ pub(crate) struct Options {
     pub start: bool,
     pub assignments: bool,
     pub stations: bool,
-    pub reset_on_game_over: bool,
+    pub reset_on_new_game: bool,
 }
 
 impl Default for Options {
@@ -55,7 +55,7 @@ impl Default for Options {
             start: true,
             assignments: true,
             stations: false,
-            reset_on_game_over: false,
+            reset_on_new_game: true,
         }
     }
 }
@@ -75,6 +75,7 @@ pub(crate) struct Tracker {
     completed_assignment: i32,
     arrived_station: i32,
     start_consumed: bool,
+    new_game_reset_consumed: bool,
     fresh_game: bool,
 }
 
@@ -98,6 +99,7 @@ impl Tracker {
                 current.station
             };
             self.start_consumed = false;
+            self.new_game_reset_consumed = false;
             self.fresh_game = false;
         }
 
@@ -107,6 +109,17 @@ impl Tracker {
         if current.started || current.assignment != 0 || current.station != 0 || current.game_over {
             self.fresh_game = false;
             self.start_consumed = true;
+        }
+        if self.fresh_game
+            && current.entry == Some(SessionEntry::NewGame)
+            && !self.new_game_reset_consumed
+        {
+            self.new_game_reset_consumed = true;
+            if options.reset_on_new_game
+                && matches!(timer, Timer::Running | Timer::Paused | Timer::Ended)
+            {
+                return Some(Action::Reset);
+            }
         }
         let Some(previous) = previous else {
             // Loading the splitter after acceptance must not start it late.
@@ -137,11 +150,6 @@ impl Tracker {
             }
         }
 
-        let failed = !previous.game_over && current.game_over;
-        if failed {
-            return (options.reset_on_game_over && matches!(timer, Timer::Running | Timer::Paused))
-                .then_some(Action::Reset);
-        }
         if !current.started || current.game_over {
             return None;
         }
